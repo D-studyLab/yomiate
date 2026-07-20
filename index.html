@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta property="og:title" content="ヨミアテ｜情報を「買う」数字当て — 毎日1問">
+<meta property="og:description" content="4桁の数字当て（ヒット&ブロー）に「ヒント購入」を足した推理ゲーム。残り候補数メーターで、どの一手が情報として強かったかが見える。">
+<meta property="og:image" content="https://d-studylab.github.io/yomiate/og.png">
+<meta property="og:url" content="https://d-studylab.github.io/yomiate/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="description" content="4桁の数字当て×ヒント購入×残り候補数メーター。毎日1問のデイリー推理ゲーム。">
+<title>ヨミアテ｜情報を「買う」数字当て</title>
+<style>
+  :root { --bg:#0f1116; --panel:#181b22; --line:#2a2f3a; --txt:#e7eaef; --sub:#98a1ad;
+          --acc:#7cc4ff; --good:#6bdf9a; --bad:#ff8f8f; --gold:#e8c35a; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f4f6f8; --panel:#fff; --line:#dde3ea; --txt:#1b2027; --sub:#5b6673;
+            --acc:#1f6fb2; --good:#1f8a52; --bad:#c0492f; --gold:#a6791b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:"Segoe UI","Yu Gothic UI",Meiryo,sans-serif; line-height:1.6; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 12px; }
+  h1 { font-size: 22px; text-align:center; margin: 8px 0 2px; }
+  .sub { color:var(--sub); font-size:12.5px; text-align:center; margin-bottom:10px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:13px; margin-bottom:10px; }
+  button { background:var(--acc); color:#08202f; font-weight:bold; border:0; border-radius:10px; padding:10px 16px; font-size:15px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--acc); border:1px solid var(--acc); font-weight:normal; }
+  button:disabled { opacity:.35; cursor:default; }
+  .screen { display:none; } .screen.on { display:block; }
+  .meter { text-align:center; }
+  .meter b { font-size:34px; color:var(--gold); }
+  .meterbar { height:10px; border-radius:5px; background:var(--line); overflow:hidden; margin-top:4px; }
+  .meterbar i { display:block; height:100%; background:linear-gradient(90deg,var(--acc),var(--gold)); }
+  .trail { font-size:12px; color:var(--sub); text-align:center; margin-top:4px; overflow-wrap:anywhere; }
+  .slots { display:flex; gap:10px; justify-content:center; margin:6px 0; }
+  .slot { width:52px; height:60px; border:2px solid var(--line); border-radius:10px; font-size:30px; font-weight:bold;
+          display:flex; align-items:center; justify-content:center; background:#10131a; cursor:pointer; }
+  .slot.sel { border-color:var(--gold); box-shadow:0 0 10px rgba(232,195,90,.35); }
+  @media (prefers-color-scheme: light) { .slot { background:#eef1f5; } }
+  /* telephone-style keypad, anchored at the bottom */
+  .keys { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; max-width:320px; margin:6px auto 0; width:100%; }
+  .keys button { padding:13px 0; font-size:20px; background:var(--panel); color:var(--txt); border:1.5px solid var(--line); }
+  .keys button.used { opacity:.3; }
+  .keys button.act { background:var(--acc); color:#08202f; border:0; }
+  .hist { font-size:15.5px; font-family:ui-monospace,Consolas,monospace; flex:1 1 auto; overflow-y:auto;
+          border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:2px 6px; min-height:0; }
+  .hist div { padding:2px 0; border-bottom:1px dashed var(--line); display:flex; justify-content:space-between; }
+  .hist .hb { color:var(--gold); }
+  .hist .cd { color:var(--sub); font-size:12px; }
+  /* game screen = fixed full-viewport overlay: no scrolling, keypad at the very bottom */
+  #scr-game.on { position:fixed; inset:0; z-index:10; background:var(--bg);
+                 display:flex; flex-direction:column; height:100dvh;
+                 max-width:520px; margin:0 auto;
+                 padding:8px 12px calc(10px + env(safe-area-inset-bottom)); box-sizing:border-box; }
+  #scr-game .slots { margin:6px 0; }
+  .hints { display:flex; flex-wrap:wrap; gap:7px; }
+  .hints button { font-size:13px; padding:8px 10px; background:transparent; color:var(--gold); border:1px solid var(--gold); font-weight:normal; }
+  .hints button:disabled { opacity:.3; }
+  .digitpick { display:none; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .digitpick button { width:40px; padding:8px 0; background:var(--panel); color:var(--txt); border:1px solid var(--line); }
+  .msg { font-size:14.5px; min-height:2.2em; margin-top:6px; }
+  .big-r { font-size:40px; text-align:center; color:var(--gold); font-weight:bold; }
+  .note { font-size:12px; color:var(--sub); margin-top:10px; border-top:1px solid var(--line); padding-top:8px; }
+  .tabs { display:flex; gap:8px; justify-content:center; margin-bottom:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔢 ヨミアテ</h1>
+  <div class="sub">4桁の数字当て×<b>情報を買う</b>×残り候補メーター。あなたの一手は、何通り絞れたか。</div>
+
+  <div class="screen on" id="scr-title">
+    <div class="panel">
+      <p style="font-size:14px;margin-top:0">
+        <b>ルール</b>: 隠された<b>4桁（数字の重複なし）</b>を8手以内に当てる。<br>
+        予想すると <b style="color:var(--gold)">H</b>（数字も位置も一致）と <b style="color:var(--gold)">B</b>（数字は合うが位置違い）が返る。<br>
+        💰 <b>ヒントを買える</b>（1回=1手消費・各1回）：合計は？偶数は何個？最大は？——
+        <b>どの質問が候補を何分の1にするか</b>、メーターで全部見える。
+      </p>
+      <div class="tabs">
+        <button onclick="startGame(true, 4)">📅 きょうのヨミアテ（4桁）</button>
+      </div>
+      <div class="tabs">
+        <button class="ghost" onclick="startGame(false, 4)">♾ 4桁</button>
+        <button class="ghost" onclick="startGame(false, 5)">♾ 5桁</button>
+        <button class="ghost" onclick="startGame(false, 6)">♾ 6桁(鬼)</button>
+      </div>
+      <div style="font-size:12px;color:var(--sub);text-align:center">スコア: 速いほど高得点・ヒント1回−100・手数超過も減点（最大1000）</div>
+      <div class="msg" id="dailyinfo" style="text-align:center"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-game">
+    <div class="gtop">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--sub)">
+        <span id="mode-label"></span>
+        <span>候補 <b id="cand" style="color:var(--gold);font-size:17px">5040</b></span>
+        <span>手数 <b id="turn" style="color:var(--txt)">0</b></span>
+      </div>
+      <div class="meterbar"><i id="candbar" style="width:100%"></i></div>
+      <div class="trail" id="trail">5040</div>
+      <div class="hints" id="hints" style="margin-top:6px"></div>
+      <div class="digitpick" id="digitpick"></div>
+      <div class="msg" id="msg" style="min-height:1.4em;margin:2px 0"></div>
+    </div>
+    <div class="slots" id="slots"></div>
+    <div class="hist" id="hist"></div>
+    <div class="keys" id="keys"></div>
+  </div>
+
+  <div class="screen" id="scr-result">
+    <div class="panel" style="text-align:center">
+      <div id="rtitle" class="big-r"></div>
+      <div id="rbody" style="font-size:15px;margin:6px 0"></div>
+      <div style="margin-top:10px">
+        <button onclick="location.reload()">タイトルへ</button>
+        <button class="ghost" onclick="copyResult()">結果をコピー</button>
+      </div>
+      <div class="msg" id="copied" style="text-align:center"></div>
+    </div>
+  </div>
+
+  <div class="note">
+    残り候補数は、あなたの得た情報と矛盾しない答えの数（全5040通りから毎回計算）。良い質問ほど大きく減る——情報理論の「情報量」を体感するゲームです。すべて端末内で動作・送信なし。／ D-studyLab
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const Y = YOMIATE;
+const ALL = Y.allCandidates();
+const store = JSON.parse(localStorage.getItem('yomiate') || '{}');
+function save() { try { localStorage.setItem('yomiate', JSON.stringify(store)); } catch (e) {} }
+
+// ---------- sound ----------
+let AC = null;
+function tone(f, t0, dur, type, vol) {
+  try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, AC.currentTime + t0);
+    g.gain.linearRampToValueAtTime(vol || .1, AC.currentTime + t0 + .01);
+    g.gain.exponentialRampToValueAtTime(.001, AC.currentTime + t0 + dur);
+    o.connect(g); g.connect(AC.destination); o.start(AC.currentTime + t0); o.stop(AC.currentTime + t0 + dur + .05);
+  } catch (e) {}
+}
+
+// ---------- daily bookkeeping ----------
+const EPOCH = new Date('2026-07-20T00:00:00');
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function dailyNo() { return Math.floor((new Date(todayStr()) - EPOCH) / 86400000) + 1; }
+if (store.lastDailyDate === todayStr() && store.lastDailyResult) {
+  $('dailyinfo').textContent = `きょうの分はプレイ済み（${store.lastDailyResult}）。フリーでどうぞ／また明日`;
+}
+if (store.streak) $('dailyinfo').textContent += ` 🔥連続${store.streak}日`;
+
+// ---------- game state ----------
+let ans = null, daily = false, history = [], turns = 0, cur = [], counts = [], hintsUsed = new Set(), over = false;
+let N = 4, ALLN = ALL, TURN_MAX = 8, gameT0 = 0;
+const TURN_LIMITS = { 4: 8, 5: 10, 6: 12 };
+const SPACES = { 4: null, 5: null, 6: null };
+
+function startGame(isDaily, n) {
+  daily = isDaily; N = n || 4;
+  if (daily && store.lastDailyDate === todayStr() && store.lastDailyResult) {
+    $('dailyinfo').textContent = 'きょうの分はもうプレイ済み。フリーモードでどうぞ';
+    return;
+  }
+  if (!SPACES[N]) SPACES[N] = N === 4 ? ALL : Y.allCandidates(N);
+  ALLN = SPACES[N];
+  TURN_MAX = TURN_LIMITS[N];
+  const seed = daily ? Y.dailySeed(todayStr()) : (Date.now() >>> 0);
+  ans = Y.makeAnswer(Y.mulberry(seed), N);
+  history = []; turns = 0; counts = [ALLN.length]; hintsUsed = new Set(); over = false;
+  cur = new Array(N).fill(null); selSlot = null;
+  gameT0 = performance.now();
+  $('mode-label').textContent = daily ? `📅 きょうのヨミアテ #${dailyNo()}` : `♾ フリー ${N}桁`;
+  $('hist').innerHTML = '';
+  $('msg').textContent = '';
+  const sl = $('slots'); sl.innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    const d = document.createElement('div');
+    d.className = 'slot';
+    d.onclick = () => { if (over) return; selSlot = (selSlot === i ? null : i); refresh(); };
+    sl.appendChild(d);
+  }
+  buildKeys(); buildHints(); refresh();
+  show('scr-game');
+}
+let selSlot = null;
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('on')); $(id).classList.add('on'); }
+
+// ---------- input ----------
+function pressDigit(d) {
+  if (over) return;
+  const usedAt = cur.indexOf(d);
+  if (selSlot !== null) { // replace the selected slot
+    if (usedAt !== -1 && usedAt !== selSlot) { $('msg').textContent = `${d}は${usedAt + 1}桁目で使用中`; return; }
+    cur[selSlot] = d; selSlot = null;
+  } else {
+    if (usedAt !== -1) return;
+    const empty = cur.indexOf(null);
+    if (empty === -1) return;
+    cur[empty] = d; // fill left-to-right by default
+  }
+  tone(500 + d * 40, 0, .04, 'square', .05); refresh();
+}
+function pressDel() {
+  if (over) return;
+  if (selSlot !== null) { cur[selSlot] = null; selSlot = null; }
+  else { for (let i = cur.length - 1; i >= 0; i--) if (cur[i] !== null) { cur[i] = null; break; } }
+  refresh();
+}
+function buildKeys() { // telephone-style: 789 / 456 / 123 / ⌫ 0 判定
+  const k = $('keys'); k.innerHTML = '';
+  const rows = [[7, 8, 9], [4, 5, 6], [1, 2, 3]];
+  for (const row of rows) for (const d of row) {
+    const b = document.createElement('button');
+    b.textContent = d;
+    b.onclick = () => pressDigit(d);
+    k.appendChild(b);
+  }
+  const del = document.createElement('button'); del.textContent = '⌫'; del.className = 'act';
+  del.onclick = pressDel;
+  const zero = document.createElement('button'); zero.textContent = '0';
+  zero.onclick = () => pressDigit(0);
+  const go = document.createElement('button'); go.textContent = '判定'; go.className = 'act'; go.id = 'gobtn';
+  go.onclick = submitGuess;
+  k.appendChild(del); k.appendChild(zero); k.appendChild(go);
+}
+// physical keyboard: digits / Backspace / Enter
+addEventListener('keydown', e => {
+  if (!document.getElementById('scr-game').classList.contains('on') || over) return;
+  if (/^[0-9]$/.test(e.key)) { pressDigit(+e.key); e.preventDefault(); }
+  else if (e.key === 'Backspace') { pressDel(); e.preventDefault(); }
+  else if (e.key === 'Enter') { submitGuess(); e.preventDefault(); }
+});
+function buildHints() {
+  const h = $('hints'); h.innerHTML = '';
+  const defs = [
+    ['sum', '💰合計は？'], ['even', '💰偶数は何個？'], ['max', '💰最大の数字は？'],
+    ['one', '💰1桁教えて'], ['has', '💰「Xはある？」']];
+  for (const [kind, label] of defs) {
+    const b = document.createElement('button');
+    b.textContent = label; b.id = 'hint-' + kind;
+    b.onclick = () => buyHint(kind);
+    h.appendChild(b);
+  }
+}
+function refresh() {
+  const slots = $('slots').children;
+  for (let i = 0; i < slots.length; i++) {
+    slots[i].textContent = cur[i] !== null && cur[i] !== undefined ? cur[i] : '';
+    slots[i].classList.toggle('sel', selSlot === i);
+  }
+  for (const b of $('keys').children) {
+    if (/^\d$/.test(b.textContent)) b.classList.toggle('used', cur.includes(+b.textContent));
+  }
+  $('turn').textContent = turns + '/' + TURN_MAX;
+  const left = Y.filterCandidates(ALLN, history).length;
+  $('cand').textContent = left;
+  $('candbar').style.width = Math.max(2, Math.log(Math.max(left, 1)) / Math.log(ALLN.length) * 100) + '%';
+  $('trail').textContent = counts.join('→');
+}
+
+// ---------- actions ----------
+function endTurnCheck() {
+  if (turns >= TURN_MAX && !over) {
+    over = true;
+    finish(false);
+  }
+}
+function submitGuess() {
+  if (over) return;
+  if (cur.some(v => v === null)) { $('msg').textContent = `${N}桁そろえてから判定`; return; }
+  turns++;
+  const g = cur.slice();
+  const r = Y.hb(g, ans);
+  history.push({ type: 'guess', guess: g, h: r.h, b: r.b });
+  const left = Y.filterCandidates(ALLN, history).length;
+  counts.push(left);
+  const line = document.createElement('div');
+  line.innerHTML = `${g.join('')}　<span class="hb">${r.h}H ${r.b}B</span>　<span class="cd">残り${left}</span>`;
+  $('hist').prepend(line);
+  cur = new Array(N).fill(null); selSlot = null;
+  if (r.h === N) { over = true; refresh(); finish(true); return; }
+  tone(300, 0, .1, 'sine', .07);
+  $('msg').textContent = r.h === 0 && r.b === 0 ? `この${N}つは全部ハズレ＝強い情報！` : '';
+  refresh();
+  endTurnCheck();
+}
+function buyHint(kind) {
+  if (over || hintsUsed.has(kind)) return;
+  if (kind === 'has') { showDigitPick(); return; }
+  applyHint(kind);
+}
+function applyHint(kind, digit) {
+  hintsUsed.add(kind);
+  $('hint-' + kind).disabled = true;
+  turns++;
+  let item, text;
+  const rng = Y.mulberry(Y.dailySeed(todayStr() + kind));
+  if (kind === 'has') {
+    const v = ans.includes(digit);
+    item = { type: 'hint', kind, digit, value: v };
+    text = `「${digit}」は${v ? 'ある' : 'ない'}`;
+  } else {
+    const v = Y.HINTS[kind].fn(ans, rng);
+    item = { type: 'hint', kind, value: v };
+    text = Y.HINTS[kind].fmt(v);
+  }
+  history.push(item);
+  const left = Y.filterCandidates(ALLN, history).length;
+  counts.push(left);
+  const line = document.createElement('div');
+  line.innerHTML = `💰 ${text}　<span class="cd">残り${left}</span>`;
+  $('hist').prepend(line);
+  tone(760, 0, .12, 'triangle', .1);
+  refresh();
+  endTurnCheck();
+}
+function showDigitPick() {
+  const dp = $('digitpick'); dp.style.display = 'flex'; dp.innerHTML = '<span style="font-size:13px;color:var(--sub);align-self:center">どの数字？</span>';
+  for (let d = 0; d <= 9; d++) {
+    const b = document.createElement('button'); b.textContent = d;
+    b.onclick = () => { dp.style.display = 'none'; applyHint('has', d); };
+    dp.appendChild(b);
+  }
+}
+
+// ---------- finish ----------
+function finish(win) {
+  const hintN = hintsUsed.size;
+  const sec = (performance.now() - gameT0) / 1000;
+  const sc = Y.scoreOf(win, sec, hintN, turns);
+  const trail = counts.join('→') + (win ? '→✅' : '→💀');
+  if (daily) {
+    store.lastDailyDate = todayStr();
+    store.lastDailyResult = win ? `${turns}手クリア` : '敗北';
+    if (win) {
+      store.streak = (store.lastWinDate && (new Date(todayStr()) - new Date(store.lastWinDate) === 86400000)) ? (store.streak || 0) + 1 : 1;
+      store.lastWinDate = todayStr();
+    } else store.streak = 0;
+    save();
+  }
+  setTimeout(() => {
+    $('rtitle').textContent = win ? `🎉 ${turns}手クリア！` : '💀 手数切れ…';
+    $('rbody').innerHTML =
+      (win ? `スコア <b style="font-size:26px;color:var(--gold)">${sc}</b><span style="color:var(--sub)">/1000</span>（${Math.round(sec)}秒・ヒント${hintN}回）<br>` :
+             `答えは <b style="font-size:22px;color:var(--gold)">${ans.join('')}</b><br>`) +
+      `候補の絞り込み: <span style="font-family:monospace">${trail}</span>` +
+      (daily && store.streak ? `<br>🔥 デイリー連続 ${store.streak}日` : '');
+    const label = daily ? ` #${dailyNo()}` : ` ${N}桁`;
+    window._share = `🔢ヨミアテ${label} ${win ? `${turns}手クリア スコア${sc}` : '敗北'}(ヒント${hintN})\n候補: ${trail}\n情報を「買う」数字当て、毎日1問↓\nhttps://d-studylab.github.io/yomiate/`;
+    show('scr-result');
+    if (win) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .08, .25, 'triangle', .12));
+    else tone(200, 0, .5, 'sawtooth', .1);
+  }, 700);
+}
+function copyResult() {
+  navigator.clipboard && navigator.clipboard.writeText(window._share);
+  $('copied').textContent = 'コピーしました（Xでどうぞ）';
+}
+</script>
+</body>
+</html>
