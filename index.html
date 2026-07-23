@@ -366,5 +366,17 @@ function copyResult() {
   $('copied').textContent = 'コピーしました（Xでどうぞ）';
 }
 </script>
+
+<section id="about" style="border-top:1px solid var(--line);padding:22px 0 40px">
+  <div style="max-width:520px;margin:0 auto;padding:0 12px;line-height:1.9">
+    <h2 style="font-size:16.5px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--acc)">このゲームのルール</h2>
+    <p style="font-size:14px;margin:0 0 20px">ヨミアテは、重複のない数字の並びを推理して当てるゲーム（いわゆるヒット&ブロー）です。予想を入力するたびに、数字も位置も合っている個数がH、数字だけ合っている個数がBとして返ってきます。特徴は2つ。「合計はいくつ？」「偶数は何個？」といったヒントを1手と引き換えに購入できることと、いま分かっている情報と矛盾しない答えが残り何通りあるかが、画面上部のメーターに常時出ていることです。桁数は4〜6桁を選べて、デイリーモードでは毎日全員が同じ問題に挑みます。</p>
+    <h2 style="font-size:16.5px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--acc)">攻略のヒント</h2>
+    <p style="font-size:14px;margin:0 0 20px">序盤は正解を狙わず、なるべく多くの情報が得られる予想を投げるのが定石です。互いに違う数字を並べて、返ってきた結果で候補メーターがどれだけ縮むかを観察しましょう。ヒントの購入は1手ぶんのコストなので、「その質問で候補が何分の1になるか」を見積もってから買うと無駄がありません。候補数が桁違いに減る一手こそ良い質問——この感覚は、情報理論でいう情報量の考え方そのものです。</p>
+    <h2 style="font-size:16.5px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--acc)">つくった理由・仕掛け</h2>
+    <p style="font-size:14px;margin:0 0 20px">数字当てゲームの強い人の思考は、外から見ると勘に見えがちです。そこで残り候補数を数値で見せれば、一手ごとの上達が自分で確かめられるはず——という発想から生まれました。内部では起こりうる答えを全部持っておき、毎手ごとに矛盾するものを消して数えています。デイリー問題は日付から決まる方式なので、同じ日なら誰でも同じ盤面です。</p>
+    <p style="font-size:13px;color:var(--sub);margin:0">もっと詳しい遊び方 → <a href="https://d-studylab.com/games/guide/yomiate.html" style="color:var(--acc)">ヨミアテの解説ページ</a><br>ほかのゲーム → <a href="https://d-studylab.com/games/" style="color:var(--acc)">ミニゲームゲームズ一覧</a></p>
+  </div>
+</section>
 </body>
 </html>
